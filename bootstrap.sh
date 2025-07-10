@@ -178,10 +178,12 @@ build_tools_for_target() {
 
 main() {
     setup_dirs
+    get_make
+    get_binutils
+    get_gcc
+    get_gdb
     build_make
-    build_tools_for_target "x86_64-elf"
-    build_tools_for_target "aarch64-elf"
-    build_tools_for_target "riscv64-elf"
+    build_tools_for_target "x86_64-elf" & build_tools_for_target "aarch64-elf" & build_tools_for_target "riscv64-elf"
     echo "Done"
 }
 
