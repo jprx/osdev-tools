@@ -149,7 +149,7 @@ build_gdb() {
     get_gdb
     mkdir -p "${WORKDIR}/build-gdb-${TARGET}"
     cd "${WORKDIR}/build-gdb-${TARGET}" || exit
-    "${SRCDIR}/${GDB_VERSION}/configure" --target="${TARGET}" --prefix="${OUTDIR}" --enable-multilib --disable-nls
+    "${SRCDIR}/${GDB_VERSION}/configure" --target="${TARGET}" --prefix="${OUTDIR}" --enable-multilib --disable-nls --with-expat
     make -j"$(nproc)"
     make install
 }

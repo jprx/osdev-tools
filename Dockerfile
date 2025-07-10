@@ -1,7 +1,7 @@
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND "noninteractive"
 RUN apt-get update && apt-get upgrade -y
-RUN apt-get install -y build-essential git gcc bison flex texinfo wget
+RUN apt-get install -y build-essential git gcc bison flex texinfo wget libexpat-dev
 RUN mkdir -p /tool
 COPY bootstrap.sh /tool
 COPY redzone.patch /tool
@@ -17,6 +17,7 @@ RUN find /tool/cross/riscv64-elf/bin -type f -exec strip {} \;
 
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND "noninteractive"
+RUN apt-get update && apt-get upgrade -y && apt-get install -y libexpat-dev
 COPY --from=0 /tool/cross /tool/cross
 ENV PATH="/tool/cross/bin:$PATH"
 CMD ["/bin/bash"]
