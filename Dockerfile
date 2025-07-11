@@ -17,7 +17,7 @@ RUN find /tool/cross/riscv64-elf/bin -type f -exec strip {} \;
 
 FROM ubuntu:24.04
 ENV DEBIAN_FRONTEND "noninteractive"
-RUN apt-get update && apt-get upgrade -y && apt-get install -y libexpat-dev
+RUN apt-get update && apt-get upgrade -y && apt-get install -y libexpat-dev bear
 COPY --from=0 /tool/cross /tool/cross
 ENV PATH="/tool/cross/bin:$PATH"
 CMD ["/bin/bash"]
