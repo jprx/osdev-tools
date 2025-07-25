@@ -14,6 +14,7 @@ export GCC_VERSION="gcc-14.1.0"
 export GDB_VERSION="gdb-15.1"
 export GMP_VERSION="gmp-6.2.1"
 export MPFR_VERSION="mpfr-4.1.0"
+export GRUB_VERSION="grub-2.12"
 
 export MAKE_URL="https://ftp.gnu.org/gnu/make/${MAKE_VERSION}.tar.gz"
 export BINUTILS_URL="https://ftp.gnu.org/gnu/binutils/${BINUTILS_VERSION}.tar.xz"
@@ -21,6 +22,7 @@ export GCC_URL="https://ftp.gnu.org/gnu/gcc/${GCC_VERSION}/${GCC_VERSION}.tar.xz
 export GDB_URL="https://ftp.gnu.org/gnu/gdb/${GDB_VERSION}.tar.xz"
 export GMP_URL="https://ftp.gnu.org/gnu/gmp/${GMP_VERSION}.tar.xz"
 export MPFR_URL="https://ftp.gnu.org/gnu/mpfr/${MPFR_VERSION}.tar.xz"
+export GRUB_URL="https://ftp.gnu.org/gnu/grub/${GRUB_VERSION}.tar.xz"
 
 export REDZONE_PATCH="${PWD}/redzone.patch"
 
@@ -59,6 +61,26 @@ get_binutils() {
     get_project "${BINUTILS_VERSION}" "${BINUTILS_URL}"
 }
 
+get_gcc() {
+    get_project "${GCC_VERSION}" "${GCC_URL}"
+
+    # Download all GCC dependencies (GMP, MPFR, MPC, and ISL), in case they aren't installed
+    # Two of these dependencies are reused by GDB, but it will download its own copy
+    # So that you can build GDB without GCC and vice versa
+    cd "${SRCDIR}/${GCC_VERSION}"
+    ./contrib/download_prerequisites
+
+    # Fixup redzone for x86_64 targets
+    patch_gcc
+}
+
+patch_gcc() {
+    cd "${SRCDIR}/${GCC_VERSION}"
+    if git apply --check "${REDZONE_PATCH}" > /dev/null 2>&1; then
+        git apply "${REDZONE_PATCH}"
+    fi
+}
+
 get_gdb() {
     get_project "${GDB_VERSION}" "${GDB_URL}"
 
@@ -80,24 +102,22 @@ get_gdb() {
     fi
 }
 
-get_gcc() {
-    get_project "${GCC_VERSION}" "${GCC_URL}"
-
-    # Download all GCC dependencies (GMP, MPFR, MPC, and ISL), in case they aren't installed
-    # Two of these dependencies are reused by GDB, but it will download its own copy
-    # So that you can build GDB without GCC and vice versa
-    cd "${SRCDIR}/${GCC_VERSION}"
-    ./contrib/download_prerequisites
-
-    # Fixup redzone for x86_64 targets
-    patch_gcc
+get_grub() {
+    get_project "${GRUB_VERSION}" "${GRUB_URL}"
 }
 
-patch_gcc() {
-    cd "${SRCDIR}/${GCC_VERSION}"
-    if git apply --check "${REDZONE_PATCH}" > /dev/null 2>&1; then
-        git apply "${REDZONE_PATCH}"
+build_make() {
+    if [[ -f "${OUTDIR}/bin/make" ]]; then
+        echo "make already built"
+        return
     fi
+
+    get_make
+    mkdir -p "${WORKDIR}/build-make"
+    cd "${WORKDIR}/build-make" || exit
+    "${SRCDIR}/${MAKE_VERSION}/configure" --prefix="${OUTDIR}" --disable-nls
+    make -j"$(nproc)"
+    make install
 }
 
 build_binutils() {
@@ -154,16 +174,21 @@ build_gdb() {
     make install
 }
 
-build_make() {
-    if [[ -f "${OUTDIR}/bin/make" ]]; then
-        echo "make already built"
+build_grub() {
+    if [[ -f "${OUTDIR}/bin/grub-mkimage" ]]; then
+        echo "grub already built"
         return
     fi
 
-    get_make
-    mkdir -p "${WORKDIR}/build-make"
-    cd "${WORKDIR}/build-make" || exit
-    "${SRCDIR}/${MAKE_VERSION}/configure" --prefix="${OUTDIR}" --disable-nls
+    get_grub
+
+    # This file is missing from the distribution tarball and needs to be created
+    # see: https://www.mail-archive.com/grub-devel@gnu.org/msg37958.html
+    touch "${SRCDIR}/${GRUB_VERSION}/grub-core/extra_deps.lst"
+
+    mkdir -p "${WORKDIR}/build-${GRUB_VERSION}"
+    cd "${WORKDIR}/build-${GRUB_VERSION}" || exit
+    "${SRCDIR}/${GRUB_VERSION}/configure" --prefix="${OUTDIR}" --disable-nls --target="x86_64-elf"
     make -j"$(nproc)"
     make install
 }
@@ -182,8 +207,10 @@ main() {
     get_binutils
     get_gcc
     get_gdb
+    get_grub
     build_make
     build_tools_for_target "x86_64-elf" & build_tools_for_target "aarch64-elf" & build_tools_for_target "riscv64-elf"
+    build_grub
     echo "Done"
 }
 
